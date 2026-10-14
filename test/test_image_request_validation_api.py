@@ -38,7 +38,7 @@ class ImageRequestValidationApiTests(unittest.TestCase):
         app.include_router(ai_module.create_router())
         self.client = TestClient(app)
 
-    def test_generation_rejects_unconfigured_gpt_image_25_model(self) -> None:
+    def test_generation_uses_default_gpt_image_25_route(self) -> None:
         with mock.patch.dict(
             config.data,
             {"gpt_image_25_sunburst_upstream_model_name": ""},
@@ -50,9 +50,8 @@ class ImageRequestValidationApiTests(unittest.TestCase):
                 json={"model": GPT_IMAGE_25_SUNBURST_MODEL, "prompt": "draw", "size": "1024x1024"},
             )
 
-        self.assertEqual(response.status_code, 400, response.text)
-        self.assertIn("not configured", response.text)
-        self.assertEqual(self.calls, [])
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.calls[0]["model"], GPT_IMAGE_25_SUNBURST_MODEL)
 
     def test_generation_validates_gpt_image_25_size_before_handler(self) -> None:
         with mock.patch.dict(

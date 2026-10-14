@@ -186,8 +186,8 @@ function normalizeConfig(config: SettingsConfig): SettingsConfig {
     base_url: typeof config.base_url === "string" ? config.base_url : "",
     global_system_prompt: String(config.global_system_prompt || ""),
     default_upstream_model_name: String(config.default_upstream_model_name || "gpt-5-5"),
-    gpt_image_25_sunburst_upstream_model_name: String(config.gpt_image_25_sunburst_upstream_model_name || ""),
-    gpt_image_25_flare_upstream_model_name: String(config.gpt_image_25_flare_upstream_model_name || ""),
+    gpt_image_25_sunburst_upstream_model_name: String(config.gpt_image_25_sunburst_upstream_model_name || "gpt-image-2.5-sunburst"),
+    gpt_image_25_flare_upstream_model_name: String(config.gpt_image_25_flare_upstream_model_name || "gpt-image-2.5-flare"),
     default_thinking_effort: defaultThinkingEffort,
     sensitive_words: Array.isArray(config.sensitive_words) ? config.sensitive_words : [],
     ai_review: {
@@ -440,8 +440,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         base_url: String(config.base_url || "").trim(),
         global_system_prompt: String(config.global_system_prompt || "").trim(),
         default_upstream_model_name: String(config.default_upstream_model_name || "gpt-5-5").trim() || "gpt-5-5",
-        gpt_image_25_sunburst_upstream_model_name: String(config.gpt_image_25_sunburst_upstream_model_name || "").trim(),
-        gpt_image_25_flare_upstream_model_name: String(config.gpt_image_25_flare_upstream_model_name || "").trim(),
+        gpt_image_25_sunburst_upstream_model_name: String(config.gpt_image_25_sunburst_upstream_model_name || "gpt-image-2.5-sunburst").trim() || "gpt-image-2.5-sunburst",
+        gpt_image_25_flare_upstream_model_name: String(config.gpt_image_25_flare_upstream_model_name || "gpt-image-2.5-flare").trim() || "gpt-image-2.5-flare",
         default_thinking_effort: ["standard", "extended", "max"].includes(String(config.default_thinking_effort))
           ? config.default_thinking_effort
           : "auto",

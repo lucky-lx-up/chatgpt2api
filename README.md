@@ -120,7 +120,7 @@ environment:
 - 兼容面向图片场景的 `POST /v1/chat/completions`
 - 兼容面向图片场景的 `POST /v1/responses`
 - `GET /v1/models` 返回已配置的图片模型、`auto`、`gpt-5`、`gpt-5-1`、`gpt-5-2`、`gpt-5-3`、`gpt-5-3-mini`、`gpt-5-mini`；默认包含 `gpt-image-2`，并按账号类型加入 `codex-gpt-image-2`
-- 支持将官方 `gpt-image-2.5-sunburst` 与 `gpt-image-2.5-flare` 配置为独立上游路由；仅在设置中填写并验证对应 ChatGPT 上游模型名称后才会通过 `/v1/models` 公开
+- 默认支持官方 `gpt-image-2.5-sunburst` 与 `gpt-image-2.5-flare`；有可用网页来源账号时会自动通过 `/v1/models` 公开。设置页可选填入不同的 ChatGPT 上游模型 slug 覆盖默认路由。
 - 支持通过 `n` 返回多张生成结果
 - 支持生成可编辑 PPT 文件
 - 支持生成可编辑 PSD 文件
@@ -130,7 +130,7 @@ environment:
 ### 在线画图功能
 
 - 内置在线画图工作台，支持生成、图片编辑与多图组图编辑
-- 根据 `/v1/models` 的能力信息展示已启用的图片模型；配置并验证路由后可选择 `gpt-image-2.5-sunburst` 或 `gpt-image-2.5-flare`，并提供 `xhigh` / `max` 质量和符合 2.5 约束的高分辨率预设
+- 根据 `/v1/models` 的能力信息展示已启用的图片模型；网页来源账号可自动选择 `gpt-image-2.5-sunburst` 或 `gpt-image-2.5-flare`，并提供 `xhigh` / `max` 质量和符合 2.5 约束的高分辨率预设
 - 编辑模式支持参考图上传
 - 前端支持多图生成交互
 - 本地保存图片会话历史，支持回看、删除和清空
@@ -196,7 +196,7 @@ curl http://localhost:8000/v1/models \
 
 | 字段   | 说明 |
 |:-----|:-----|
-| 返回模型 | `gpt-image-2` 默认可用；Codex 图像别名按账号类型返回；填写已验证的 2.5 上游路由后才会加入 `gpt-image-2.5-sunburst` / `gpt-image-2.5-flare` |
+| 返回模型 | 有可用网页来源账号时自动加入 `gpt-image-2.5-sunburst` / `gpt-image-2.5-flare`；Codex 图像别名按账号类型返回；可在设置中覆盖两个 2.5 变体的上游 slug |
 | 能力信息 | 图片模型条目包含 `chatgpt2api_capabilities`，供内置工作台读取可选质量和高分辨率能力 |
 | 接入场景 | 可接入 Cherry Studio、New API 等上游或客户端 |
 
@@ -228,7 +228,7 @@ curl http://localhost:8000/v1/images/generations \
 
 | 字段                | 说明                                                 |
 |:------------------|:---------------------------------------------------|
-| `model`           | 图片模型，当前可用值以 `/v1/models` 返回结果为准；2.5 变体需要先配置已验证的上游路由 |
+| `model`           | 图片模型，当前可用值以 `/v1/models` 返回结果为准；2.5 变体默认使用官方同名路由，可在设置中覆盖上游 slug |
 | `prompt`          | 图片生成提示词 |
 | `n`               | 生成数量，当前后端限制为 `1-4` |
 | `size`            | 可选图片尺寸；2.5 变体须为 `WIDTHxHEIGHT`，每边为 16 的倍数，比例 1:3 至 3:1，最大边 3840 |
@@ -276,7 +276,7 @@ curl http://localhost:8000/v1/images/edits \
 
 | 字段          | 说明                                            |
 |:------------|:----------------------------------------------|
-| `model`     | 图片模型，当前可用值以 `/v1/models` 返回结果为准；2.5 变体需要先配置已验证的上游路由 |
+| `model`     | 图片模型，当前可用值以 `/v1/models` 返回结果为准；2.5 变体默认使用官方同名路由，可在设置中覆盖上游 slug |
 | `prompt`    | 图片编辑提示词 |
 | `n`         | 生成数量，当前后端限制为 `1-4` |
 | `size`      | 可选图片尺寸；2.5 变体按生成接口的尺寸约束校验 |

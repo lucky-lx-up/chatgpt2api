@@ -8,8 +8,8 @@
 | OpenAI 兼容 `POST /v1/images/edits` | ✅  | 已支持，可上传图片进行编辑。 |
 | 面向图片工作流的 `POST /v1/chat/completions` | ✅  | 已支持图片相关请求。 |
 | 面向图片工作流的 `POST /v1/responses` | ✅  | 已支持图片生成工具调用。 |
-| `GET /v1/models` 接口 | ✅  | 返回由可用账号支持的旧版图片别名；仅在配置对应上游路由后公开 `gpt-image-2.5-sunburst` / `gpt-image-2.5-flare`。 |
-| GPT Image 2.5 路由配置 | ✅  | 支持为官方 Sunburst 和 Flare 标识分别配置上游路由，并执行模型专属的质量和尺寸校验；实际可用性仍需账号级探测确认。 |
+| `GET /v1/models` 接口 | ✅  | 有可用网页来源账号时自动公开 `gpt-image-2.5-sunburst` / `gpt-image-2.5-flare`；Codex-only 账号不会公开网页图片模型。 |
+| GPT Image 2.5 路由配置 | ✅  | 默认使用官方 Sunburst 和 Flare 标识，可选覆盖 ChatGPT 上游 slug，并执行模型专属的质量和尺寸校验；账号未获上游灰度时会返回上游不可用错误。 |
 | 同时生成多张图片 | ✅  | 已支持，后端与前端都可进行多图生成。 |
 | 图片并行生成 | ✅  | 多张图片使用独立线程和账号同时生成，可通过 `image_parallel_generation` 配置关闭。 |
 | 图片生成进度追踪 | ✅  | 任务显示当前步骤（上传/预热/获取token/生成中等），支持耗时统计。 |

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-+ [新增] 支持配置官方 `gpt-image-2.5-sunburst` 与 `gpt-image-2.5-flare` 的独立上游路由；仅在路由已配置时通过 `/v1/models` 公开。
++ [调整] GPT Image 2.5 默认使用官方 Sunburst / Flare 上游模型名并自动公开；设置页字段改为可选的高级 slug 覆盖。
 + [新增] 为 GPT Image 2.5 增加 `xhigh` / `max` 质量选项、模型能力元数据和尺寸约束校验。
 + [修复] `/v1/responses` 的 `image_generation` 工具现在优先使用 `tools[].model`，并保留顶层模型字段用于响应回显。
 + [调整] 对当前 ChatGPT 网页转发链路无法可靠支持的 Images API 字段返回明确错误，避免静默丢失参数。

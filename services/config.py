@@ -16,6 +16,9 @@ CONFIG_FILE = BASE_DIR / "config.json"
 VERSION_FILE = BASE_DIR / "VERSION"
 BACKUP_STATE_FILE = DATA_DIR / "backup_state.json"
 
+DEFAULT_GPT_IMAGE_25_SUNBURST_UPSTREAM_MODEL = "gpt-image-2.5-sunburst"
+DEFAULT_GPT_IMAGE_25_FLARE_UPSTREAM_MODEL = "gpt-image-2.5-flare"
+
 DEFAULT_BACKUP_INCLUDE = {
     "config": True,
     "cpa": True,
@@ -515,11 +518,17 @@ class ConfigStore:
 
     @property
     def gpt_image_25_sunburst_upstream_model_name(self) -> str:
-        return str(self.data.get("gpt_image_25_sunburst_upstream_model_name") or "").strip()
+        return str(
+            self.data.get("gpt_image_25_sunburst_upstream_model_name")
+            or DEFAULT_GPT_IMAGE_25_SUNBURST_UPSTREAM_MODEL
+        ).strip()
 
     @property
     def gpt_image_25_flare_upstream_model_name(self) -> str:
-        return str(self.data.get("gpt_image_25_flare_upstream_model_name") or "").strip()
+        return str(
+            self.data.get("gpt_image_25_flare_upstream_model_name")
+            or DEFAULT_GPT_IMAGE_25_FLARE_UPSTREAM_MODEL
+        ).strip()
 
     @property
     def default_thinking_effort(self) -> str:

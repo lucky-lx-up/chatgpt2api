@@ -16,20 +16,29 @@ from utils.helper import GPT_IMAGE_25_FLARE_MODEL, GPT_IMAGE_25_SUNBURST_MODEL
 
 
 class GptImage25ModelTests(unittest.TestCase):
-    def test_variants_require_explicit_upstream_route(self) -> None:
-        with mock.patch.dict(
-            config.data,
+    def test_variants_default_to_official_upstream_routes(self) -> None:
+        for override in (
             {
                 "gpt_image_25_sunburst_upstream_model_name": "",
                 "gpt_image_25_flare_upstream_model_name": "",
             },
-            clear=False,
+            {},
         ):
-            self.assertFalse(is_image_model_enabled(GPT_IMAGE_25_SUNBURST_MODEL))
-            self.assertFalse(is_image_model_enabled(GPT_IMAGE_25_FLARE_MODEL))
-            with self.assertRaises(HTTPException) as context:
-                validate_image_request(GPT_IMAGE_25_SUNBURST_MODEL, size="1024x1024", quality="high")
-        self.assertIn("not configured", str(context.exception.detail))
+            with self.subTest(override=override), mock.patch.dict(config.data, override, clear=not override):
+                self.assertTrue(is_image_model_enabled(GPT_IMAGE_25_SUNBURST_MODEL))
+                self.assertTrue(is_image_model_enabled(GPT_IMAGE_25_FLARE_MODEL))
+                self.assertEqual(
+                    image_model_upstream_route(GPT_IMAGE_25_SUNBURST_MODEL),
+                    GPT_IMAGE_25_SUNBURST_MODEL,
+                )
+                self.assertEqual(
+                    image_model_upstream_route(GPT_IMAGE_25_FLARE_MODEL),
+                    GPT_IMAGE_25_FLARE_MODEL,
+                )
+                self.assertEqual(
+                    validate_image_request(GPT_IMAGE_25_SUNBURST_MODEL, size="1024x1024", quality="high"),
+                    GPT_IMAGE_25_SUNBURST_MODEL,
+                )
 
     def test_variant_uses_its_configured_upstream_route(self) -> None:
         with mock.patch.dict(

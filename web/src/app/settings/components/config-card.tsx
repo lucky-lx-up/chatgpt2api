@@ -166,20 +166,20 @@ export function ConfigCard() {
             <Input
               value={String(config?.gpt_image_25_sunburst_upstream_model_name || "")}
               onChange={(event) => setGptImage25SunburstUpstreamModelName(event.target.value)}
-              placeholder="留空则不公开 gpt-image-2.5-sunburst"
+              placeholder="gpt-image-2.5-sunburst"
               className="h-10 rounded-xl border-stone-200 bg-white"
             />
-            <p className="text-xs text-stone-500">填写已验证的 ChatGPT 上游模型名称后，才会在图片模型列表中公开该变体。</p>
+            <p className="text-xs text-stone-500">默认使用官方同名上游模型；仅在你的 ChatGPT 账号使用不同 slug 时填写覆盖值。</p>
           </div>
           <div className="space-y-2">
             <label className="text-sm text-stone-700">GPT Image 2.5 Flare 上游模型</label>
             <Input
               value={String(config?.gpt_image_25_flare_upstream_model_name || "")}
               onChange={(event) => setGptImage25FlareUpstreamModelName(event.target.value)}
-              placeholder="留空则不公开 gpt-image-2.5-flare"
+              placeholder="gpt-image-2.5-flare"
               className="h-10 rounded-xl border-stone-200 bg-white"
             />
-            <p className="text-xs text-stone-500">填写已验证的 ChatGPT 上游模型名称后，才会在图片模型列表中公开该变体。</p>
+            <p className="text-xs text-stone-500">默认使用官方同名上游模型；仅在你的 ChatGPT 账号使用不同 slug 时填写覆盖值。</p>
           </div>
           <div className="space-y-2">
             <label className="text-sm text-stone-700">默认思考强度</label>

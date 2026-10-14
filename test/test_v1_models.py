@@ -64,7 +64,7 @@ class ModelListTests(unittest.TestCase):
         self.assertNotIn("codex-gpt-image-2", ids)
         self.assertNotIn("plus-codex-gpt-image-2", ids)
 
-    def test_gpt_image_25_models_require_configured_routes(self):
+    def test_gpt_image_25_models_use_default_routes(self):
         accounts = [{"access_token": "token-web-plus", "type": "Plus", "source_type": "web"}]
         with (
             mock.patch.object(
@@ -91,10 +91,10 @@ class ModelListTests(unittest.TestCase):
         ):
             disabled = openai_v1_models.list_models()
 
-        disabled_ids = {item["id"] for item in disabled["data"]}
-        self.assertNotIn("gpt-image-2.5", disabled_ids)
-        self.assertNotIn(GPT_IMAGE_25_SUNBURST_MODEL, disabled_ids)
-        self.assertNotIn(GPT_IMAGE_25_SUNBURST_MODEL + "-2026-09-08", disabled_ids)
+        default_ids = {item["id"] for item in disabled["data"]}
+        self.assertNotIn("gpt-image-2.5", default_ids)
+        self.assertIn(GPT_IMAGE_25_SUNBURST_MODEL, default_ids)
+        self.assertNotIn(GPT_IMAGE_25_SUNBURST_MODEL + "-2026-09-08", default_ids)
 
         with (
             mock.patch.object(
