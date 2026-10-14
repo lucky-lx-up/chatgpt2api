@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import unittest
 from unittest import mock
 
@@ -8,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import api.image_tasks as image_tasks_module
+from services.config import config
 
 
 AUTH_HEADERS = {"Authorization": "Bearer chatgpt2api"}
@@ -63,8 +65,14 @@ class ImageTasksApiTests(unittest.TestCase):
     def setUp(self):
         self.fake_service = FakeImageTaskService()
         self.service_patcher = mock.patch.object(image_tasks_module, "image_task_service", self.fake_service)
+        self.auth_key_patcher = mock.patch.dict(config.data, {"auth-key": "chatgpt2api"}, clear=False)
+        self.auth_environment_patcher = mock.patch.dict(os.environ, {"CHATGPT2API_AUTH_KEY": "chatgpt2api"}, clear=False)
         self.service_patcher.start()
+        self.auth_key_patcher.start()
+        self.auth_environment_patcher.start()
         self.addCleanup(self.service_patcher.stop)
+        self.addCleanup(self.auth_key_patcher.stop)
+        self.addCleanup(self.auth_environment_patcher.stop)
         app = FastAPI()
         app.include_router(image_tasks_module.create_router())
         self.client = TestClient(app)

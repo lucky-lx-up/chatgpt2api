@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import unittest
 from unittest import mock
 
@@ -8,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import api.ai as ai_module
+from services.config import config
 
 
 AUTH_HEADERS = {"Authorization": "Bearer chatgpt2api"}
@@ -24,8 +26,14 @@ class ImagesEditsApiTests(unittest.TestCase):
             return {"created": 1, "data": [{"b64_json": base64.b64encode(b"out").decode("ascii")}]}
 
         self.handler_patcher = mock.patch.object(ai_module.openai_v1_image_edit, "handle", fake_handle)
+        self.auth_key_patcher = mock.patch.dict(config.data, {"auth-key": "chatgpt2api"}, clear=False)
+        self.auth_environment_patcher = mock.patch.dict(os.environ, {"CHATGPT2API_AUTH_KEY": "chatgpt2api"}, clear=False)
         self.handler_patcher.start()
+        self.auth_key_patcher.start()
+        self.auth_environment_patcher.start()
         self.addCleanup(self.handler_patcher.stop)
+        self.addCleanup(self.auth_key_patcher.stop)
+        self.addCleanup(self.auth_environment_patcher.stop)
         app = FastAPI()
         app.include_router(ai_module.create_router())
         self.client = TestClient(app)

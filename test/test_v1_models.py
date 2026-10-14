@@ -6,7 +6,9 @@ from unittest import mock
 
 import requests
 
+from services.config import config
 from services.protocol import openai_v1_models
+from utils.helper import GPT_IMAGE_25_SUNBURST_MODEL, LEGACY_IMAGE_MODEL
 
 
 AUTH_KEY = "chatgpt2api"
@@ -61,6 +63,81 @@ class ModelListTests(unittest.TestCase):
         self.assertIn("gpt-image-2", ids)
         self.assertNotIn("codex-gpt-image-2", ids)
         self.assertNotIn("plus-codex-gpt-image-2", ids)
+
+    def test_gpt_image_25_models_require_configured_routes(self):
+        accounts = [{"access_token": "token-web-plus", "type": "Plus", "source_type": "web"}]
+        with (
+            mock.patch.object(
+                openai_v1_models.model_catalog_service,
+                "list_models",
+                return_value={
+                    "object": "list",
+                    "data": [
+                        {"id": "gpt-image-2.5", "object": "model"},
+                        {"id": GPT_IMAGE_25_SUNBURST_MODEL, "object": "model"},
+                        {"id": GPT_IMAGE_25_SUNBURST_MODEL + "-2026-09-08", "object": "model"},
+                    ],
+                },
+            ),
+            mock.patch.object(openai_v1_models.account_service, "list_accounts", return_value=accounts),
+            mock.patch.dict(
+                config.data,
+                {
+                    "gpt_image_25_sunburst_upstream_model_name": "",
+                    "gpt_image_25_flare_upstream_model_name": "",
+                },
+                clear=False,
+            ),
+        ):
+            disabled = openai_v1_models.list_models()
+
+        disabled_ids = {item["id"] for item in disabled["data"]}
+        self.assertNotIn("gpt-image-2.5", disabled_ids)
+        self.assertNotIn(GPT_IMAGE_25_SUNBURST_MODEL, disabled_ids)
+        self.assertNotIn(GPT_IMAGE_25_SUNBURST_MODEL + "-2026-09-08", disabled_ids)
+
+        with (
+            mock.patch.object(
+                openai_v1_models.model_catalog_service,
+                "list_models",
+                return_value={"object": "list", "data": []},
+            ),
+            mock.patch.object(openai_v1_models.account_service, "list_accounts", return_value=accounts),
+            mock.patch.dict(
+                config.data,
+                {"gpt_image_25_sunburst_upstream_model_name": "upstream-sunburst"},
+                clear=False,
+            ),
+        ):
+            enabled = openai_v1_models.list_models()
+
+        sunburst = next(item for item in enabled["data"] if item["id"] == GPT_IMAGE_25_SUNBURST_MODEL)
+        self.assertEqual(
+            sunburst["chatgpt2api_capabilities"]["quality_values"],
+            ["auto", "low", "medium", "high", "xhigh", "max"],
+        )
+        with (
+            mock.patch.object(
+                openai_v1_models.model_catalog_service,
+                "list_models",
+                return_value={"object": "list", "data": []},
+            ),
+            mock.patch.object(
+                openai_v1_models.account_service,
+                "list_accounts",
+                return_value=[{"access_token": "token-codex", "type": "Plus", "source_type": "codex"}],
+            ),
+            mock.patch.dict(
+                config.data,
+                {"gpt_image_25_sunburst_upstream_model_name": "upstream-sunburst"},
+                clear=False,
+            ),
+        ):
+            codex_only = openai_v1_models.list_models()
+
+        codex_only_ids = {item["id"] for item in codex_only["data"]}
+        self.assertNotIn(LEGACY_IMAGE_MODEL, codex_only_ids)
+        self.assertNotIn(GPT_IMAGE_25_SUNBURST_MODEL, codex_only_ids)
 
     def test_list_models_function(self):
         """测试直接调用服务层获取模型列表。"""

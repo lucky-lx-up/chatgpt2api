@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from api.image_inputs import parse_image_edit_request, read_image_sources
 from api.support import require_identity, resolve_image_base_url
 from services.content_filter import check_request
+from services.image_model_service import reject_unsupported_web_image_parameters, validate_image_request
 from services.image_task_service import image_task_service
 from services.log_service import LoggedCall
 
 
 class ImageGenerationTaskRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     client_task_id: str = Field(..., min_length=1)
     prompt: str = Field(..., min_length=1)
     model: str = "gpt-image-2"
@@ -53,6 +55,9 @@ def create_router() -> APIRouter:
         authorization: str | None = Header(default=None),
     ):
         identity = require_identity(authorization)
+        raw_payload = body.model_dump(mode="python")
+        reject_unsupported_web_image_parameters(raw_payload)
+        validate_image_request(body.model, size=body.size, quality=body.quality, parameters=raw_payload)
         await filter_or_log(LoggedCall(identity, "/api/image-tasks/generations", body.model, "文生图任务", request_text=body.prompt), body.prompt)
         try:
             return await run_in_threadpool(

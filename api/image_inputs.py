@@ -14,6 +14,11 @@ from fastapi import HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 
+from services.image_model_service import (
+    UNSUPPORTED_WEB_IMAGE_PARAMETERS,
+    reject_unsupported_web_image_parameters,
+    validate_image_request,
+)
 from services.proxy_service import proxy_settings
 
 ImageInput = tuple[bytes, str, str]
@@ -74,6 +79,8 @@ def _payload_from_fields(fields: dict[str, Any]) -> dict[str, Any]:
         "response_format": _clean(fields.get("response_format"), "b64_json"),
         "stream": _parse_bool(fields.get("stream")),
     }
+    reject_unsupported_web_image_parameters(fields)
+    validate_image_request(payload["model"], size=payload["size"], quality=payload["quality"], parameters=fields)
     if "client_task_id" in fields:
         payload["client_task_id"] = _clean(fields.get("client_task_id"))
     return payload
@@ -183,10 +190,34 @@ async def parse_image_edit_request(request: Request) -> tuple[dict[str, Any], li
 
     form = await request.form()
     fields: dict[str, Any] = {}
-    for key in ("client_task_id", "prompt", "model", "n", "size", "quality", "response_format", "stream"):
+    for key in (
+        "client_task_id",
+        "prompt",
+        "model",
+        "n",
+        "size",
+        "quality",
+        "response_format",
+        "stream",
+        "background",
+        "output_format",
+        "output_compression",
+        "moderation",
+        "partial_images",
+        "input_image_mask",
+        "previous_response_id",
+    ):
         value = form.get(key)
         if isinstance(value, str):
             fields[key] = value
+    unsupported_field_names = {
+        normalized_key
+        for key, value in form.multi_items()
+        if value is not None
+        and (normalized_key := key.removesuffix("[]")) in UNSUPPORTED_WEB_IMAGE_PARAMETERS
+    }
+    if unsupported_field_names:
+        reject_unsupported_web_image_parameters({key: True for key in unsupported_field_names})
     sources: list[ImageSource] = []
     mask_sources: list[ImageSource] = []
     for key, value in form.multi_items():

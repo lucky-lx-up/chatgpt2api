@@ -26,6 +26,7 @@ import {
   resumeImagePoll,
   type Account,
   type ImageModel,
+  type ImageModelCapabilities,
   type Model,
   type ImageTask,
 } from "@/lib/api";
@@ -87,6 +88,28 @@ function parseImageSize(size: string) {
   return match ? { width: match[1], height: match[2] } : { width: "1024", height: "1024" };
 }
 
+function validateStrictImageDimensions(widthValue: string, heightValue: string) {
+  const width = Number(widthValue);
+  const height = Number(heightValue);
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    return "请输入有效的图片尺寸";
+  }
+  if (width % 16 !== 0 || height % 16 !== 0) {
+    return "该模型的宽高必须是 16 的倍数";
+  }
+  if (Math.max(width, height) > 3840) {
+    return "该模型的单边最大为 3840 像素";
+  }
+  if (Math.max(width, height) > Math.min(width, height) * 3) {
+    return "该模型的宽高比必须介于 1:3 和 3:1";
+  }
+  const pixels = width * height;
+  if (pixels < 655_360 || pixels > 8_294_400) {
+    return "该模型的总像素必须介于 655360 和 8294400 之间";
+  }
+  return "";
+}
+
 const activeConversationQueueIds = new Set<string>();
 let pollAbortController: AbortController | null = null;
 
@@ -146,8 +169,18 @@ function dataUrlToFile(dataUrl: string, fileName: string, mimeType?: string) {
 
 function filterImageModels(items: Model[]): ImageModel[] {
   return items
+    .filter((item) => Boolean(item.chatgpt2api_capabilities))
     .map((item) => String(item.id || "").trim())
     .filter((id, index, list) => id.toLowerCase().includes("image") && list.indexOf(id) === index);
+}
+
+function extractImageModelCapabilities(items: Model[]): Record<string, ImageModelCapabilities> {
+  return Object.fromEntries(
+    items
+      .filter((item) => item.chatgpt2api_capabilities)
+      .map((item) => [String(item.id || "").trim(), item.chatgpt2api_capabilities!])
+      .filter(([id]) => Boolean(id)),
+  );
 }
 
 function normalizeStoredImageModel(value: string | null, availableModels: ImageModel[]): ImageModel {
@@ -471,6 +504,9 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
   const [imageQuality, setImageQuality] = useState("auto");
   const [imageModel, setImageModel] = useState<ImageModel>("gpt-image-2");
   const [imageModels, setImageModels] = useState<ImageModel[]>(["gpt-image-2"]);
+  const [imageModelCapabilities, setImageModelCapabilities] = useState<Record<string, ImageModelCapabilities>>({
+    "gpt-image-2": { quality_values: ["auto", "low", "medium", "high"], max_resolution: false, strict_dimensions: false },
+  });
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [referenceImageFiles, setReferenceImageFiles] = useState<File[]>([]);
   const [referenceImages, setReferenceImages] = useState<StoredReferenceImage[]>([]);
@@ -691,11 +727,13 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
     const loadImageModels = async () => {
       try {
         const data = await fetchModels();
-        const available = filterImageModels(Array.isArray(data.data) ? data.data : []);
+        const items = Array.isArray(data.data) ? data.data : [];
+        const available = filterImageModels(items);
         if (cancelled || available.length === 0) {
           return;
         }
         setImageModels(available);
+        setImageModelCapabilities(extractImageModelCapabilities(items));
         const storedModel = typeof window !== "undefined" ? window.localStorage.getItem(IMAGE_MODEL_STORAGE_KEY) : null;
         setImageModel((current) => {
           if (available.includes(current)) {
@@ -706,6 +744,9 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
       } catch {
         if (!cancelled) {
           setImageModels(["gpt-image-2"]);
+          setImageModelCapabilities({
+            "gpt-image-2": { quality_values: ["auto", "low", "medium", "high"], max_resolution: false, strict_dimensions: false },
+          });
         }
       }
     };
@@ -1147,8 +1188,10 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
     const parsedSize = parseImageSize(turn.size);
     setImageWidth(parsedSize.width);
     setImageHeight(parsedSize.height);
-    setImageQuality(turn.quality);
-    setImageModel(turn.model);
+    const nextModel = imageModels.includes(turn.model) ? turn.model : imageModels[0] || "gpt-image-2";
+    const allowedQualities = imageModelCapabilities[nextModel]?.quality_values || ["auto", "low", "medium", "high"];
+    setImageQuality(allowedQualities.includes(turn.quality) ? turn.quality : "auto");
+    setImageModel(nextModel);
     setReferenceImages(turn.referenceImages);
     setReferenceImageFiles(
       turn.referenceImages.map((image) => dataUrlToFile(image.dataUrl, image.name, image.type)),
@@ -1158,7 +1201,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
     }
     textareaRef.current?.focus();
     toast.success("已复用这条提示词配置");
-  }, []);
+  }, [imageModelCapabilities, imageModels]);
 
   const openLightbox = useCallback((images: ImageLightboxItem[], index: number) => {
     if (images.length === 0) {
@@ -1550,6 +1593,13 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
       toast.error("请输入提示词");
       return;
     }
+    if (imageModelCapabilities[imageModel]?.strict_dimensions) {
+      const dimensionError = validateStrictImageDimensions(imageWidth, imageHeight);
+      if (dimensionError) {
+        toast.error(dimensionError);
+        return;
+      }
+    }
 
     const effectiveImageMode: ImageConversationMode = referenceImageFiles.length > 0 ? "edit" : "generate";
 
@@ -1729,6 +1779,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
             imageQuality={imageQuality}
             imageModel={imageModel}
             imageModels={imageModels}
+            imageModelCapabilities={imageModelCapabilities}
             availableQuota={availableQuota}
             activeTaskCount={activeTaskCount}
             referenceImages={referenceImages}
@@ -1741,7 +1792,18 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
             onImageWidthChange={setImageWidth}
             onImageHeightChange={setImageHeight}
             onImageQualityChange={setImageQuality}
-            onImageModelChange={setImageModel}
+            onImageModelChange={(model) => {
+              setImageModel(model);
+              const capabilities = imageModelCapabilities[model];
+              const allowedQualities = capabilities?.quality_values || ["auto", "low", "medium", "high"];
+              setImageQuality((current) => allowedQualities.includes(current) ? current : "auto");
+              if (capabilities?.strict_dimensions) {
+                setImageRatio("1:1");
+                setImageTier("1k");
+                setImageWidth("1024");
+                setImageHeight("1024");
+              }
+            }}
             onSubmit={handleSubmit}
             onPickReferenceImage={() => fileInputRef.current?.click()}
             onReferenceImageChange={handleReferenceImageChange}

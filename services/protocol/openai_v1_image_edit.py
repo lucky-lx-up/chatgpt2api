@@ -5,6 +5,7 @@ from typing import Any, Iterator
 
 from PIL import Image
 
+from services.image_model_service import validate_image_request
 from services.protocol.conversation import (
     ConversationRequest,
     ImageGenerationError,
@@ -60,6 +61,7 @@ def handle(body: dict[str, Any]) -> dict[str, Any] | Iterator[dict[str, Any]]:
     response_format = str(body.get("response_format") or "b64_json")
     base_url = str(body.get("base_url") or "") or None
     progress_callback = body.get("progress_callback")
+    validate_image_request(model, size=size, quality=quality, parameters=body)
     encoded_images = encode_images(images)
     if not encoded_images:
         raise ImageGenerationError("image is required")

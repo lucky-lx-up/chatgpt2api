@@ -119,8 +119,8 @@ environment:
 - 兼容 `POST /v1/images/edits` 图片编辑接口
 - 兼容面向图片场景的 `POST /v1/chat/completions`
 - 兼容面向图片场景的 `POST /v1/responses`
-- `GET /v1/models` 返回 `gpt-image-2`、`codex-gpt-image-2`、`auto`、`gpt-5`、`gpt-5-1`、`gpt-5-2`、`gpt-5-3`、`gpt-5-3-mini`、
-  `gpt-5-mini`
+- `GET /v1/models` 返回已配置的图片模型、`auto`、`gpt-5`、`gpt-5-1`、`gpt-5-2`、`gpt-5-3`、`gpt-5-3-mini`、`gpt-5-mini`；默认包含 `gpt-image-2`，并按账号类型加入 `codex-gpt-image-2`
+- 支持将官方 `gpt-image-2.5-sunburst` 与 `gpt-image-2.5-flare` 配置为独立上游路由；仅在设置中填写并验证对应 ChatGPT 上游模型名称后才会通过 `/v1/models` 公开
 - 支持通过 `n` 返回多张生成结果
 - 支持生成可编辑 PPT 文件
 - 支持生成可编辑 PSD 文件
@@ -130,7 +130,7 @@ environment:
 ### 在线画图功能
 
 - 内置在线画图工作台，支持生成、图片编辑与多图组图编辑
-- 支持 `gpt-image-2`、`codex-gpt-image-2`、`auto`、`gpt-5`、`gpt-5-1`、`gpt-5-2`、`gpt-5-3`、`gpt-5-3-mini`、`gpt-5-mini` 模型选择
+- 根据 `/v1/models` 的能力信息展示已启用的图片模型；配置并验证路由后可选择 `gpt-image-2.5-sunburst` 或 `gpt-image-2.5-flare`，并提供 `xhigh` / `max` 质量和符合 2.5 约束的高分辨率预设
 - 编辑模式支持参考图上传
 - 前端支持多图生成交互
 - 本地保存图片会话历史，支持回看、删除和清空
@@ -194,10 +194,11 @@ curl http://localhost:8000/v1/models \
 <summary>说明</summary>
 <br>
 
-| 字段   | 说明                                                                                                         |
-|:-----|:-----------------------------------------------------------------------------------------------------------|
-| 返回模型 | `gpt-image-2`、`codex-gpt-image-2`、`auto`、`gpt-5`、`gpt-5-1`、`gpt-5-2`、`gpt-5-3`、`gpt-5-3-mini`、`gpt-5-mini` |
-| 接入场景 | 可接入 Cherry Studio、New API 等上游或客户端                                                                          |
+| 字段   | 说明 |
+|:-----|:-----|
+| 返回模型 | `gpt-image-2` 默认可用；Codex 图像别名按账号类型返回；填写已验证的 2.5 上游路由后才会加入 `gpt-image-2.5-sunburst` / `gpt-image-2.5-flare` |
+| 能力信息 | 图片模型条目包含 `chatgpt2api_capabilities`，供内置工作台读取可选质量和高分辨率能力 |
+| 接入场景 | 可接入 Cherry Studio、New API 等上游或客户端 |
 
 <br>
 </details>
@@ -227,10 +228,13 @@ curl http://localhost:8000/v1/images/generations \
 
 | 字段                | 说明                                                 |
 |:------------------|:---------------------------------------------------|
-| `model`           | 图片模型，当前可用值以 `/v1/models` 返回结果为准，推荐使用 `gpt-image-2` |
-| `prompt`          | 图片生成提示词                                            |
-| `n`               | 生成数量，当前后端限制为 `1-4`                                 |
-| `response_format` | 当前请求模型中包含该字段，默认值为 `b64_json`                       |
+| `model`           | 图片模型，当前可用值以 `/v1/models` 返回结果为准；2.5 变体需要先配置已验证的上游路由 |
+| `prompt`          | 图片生成提示词 |
+| `n`               | 生成数量，当前后端限制为 `1-4` |
+| `size`            | 可选图片尺寸；2.5 变体须为 `WIDTHxHEIGHT`，每边为 16 的倍数，比例 1:3 至 3:1，最大边 3840 |
+| `quality`         | 可选，默认 `auto`；2.5 变体支持 `low`、`medium`、`high`、`xhigh`、`max`、`auto` |
+| `response_format` | 当前请求模型中包含该字段，默认值为 `b64_json` |
+| 不支持字段 | 当前 ChatGPT 网页转发链路会明确拒绝 `background`、`output_format`、`output_compression`、`moderation`、`partial_images` 等无法可靠转发的 Images API 字段 |
 
 <br>
 </details>
@@ -272,12 +276,14 @@ curl http://localhost:8000/v1/images/edits \
 
 | 字段          | 说明                                            |
 |:------------|:----------------------------------------------|
-| `model`     | 图片模型， `gpt-image-2`                           |
-| `prompt`    | 图片编辑提示词                                       |
-| `n`         | 生成数量，当前后端限制为 `1-4`                            |
-| `image`     | 需要编辑的图片文件，使用 multipart/form-data 上传           |
+| `model`     | 图片模型，当前可用值以 `/v1/models` 返回结果为准；2.5 变体需要先配置已验证的上游路由 |
+| `prompt`    | 图片编辑提示词 |
+| `n`         | 生成数量，当前后端限制为 `1-4` |
+| `size`      | 可选图片尺寸；2.5 变体按生成接口的尺寸约束校验 |
+| `quality`   | 可选，默认 `auto`；2.5 变体支持 `xhigh` 与 `max` |
+| `image`     | 需要编辑的图片文件，使用 multipart/form-data 上传 |
 | `images`    | JSON 图片引用数组，支持 `{"image_url": "https://..."}` |
-| `image_url` | 表单模式下也可直接传图片链接，支持重复字段传多张图                     |
+| `image_url` | 表单模式下也可直接传图片链接，支持重复字段传多张图 |
 
 <br>
 </details>
@@ -349,10 +355,10 @@ curl http://localhost:8000/v1/responses \
 
 | 字段       | 说明                                                                                      |
 |:---------|:----------------------------------------------------------------------------------------|
-| `model`  | 响应中会回显该模型字段，搜索和图片生成会走对应兼容逻辑                                                             |
-| `input`  | 输入内容；搜索使用最后一条用户文本，图片生成需能解析出提示词                                                          |
-| `tools`  | 支持 `image_generation`、`web_search`、`web_search_preview`、`web_search_preview_2025_03_11` |
-| `stream` | 已实现，但仍在测试                                                                               |
+| `model`  | 响应中会回显顶层模型字段；`tools[].model` 可指定实际图片模型，未指定时会回退到顶层图片模型或 `gpt-image-2` |
+| `input`  | 输入内容；图片生成需能解析出提示词，`input_image` 可传多个 data URL 或可下载图片 URL |
+| `tools`  | 支持 `image_generation`、`web_search`、`web_search_preview`、`web_search_preview_2025_03_11`；图像工具可传 `model`、`action`、`size`、`quality`。`edit` 必须提供参考图，`generate` 不接受参考图。 |
+| `stream` | 已实现，但仍在测试 |
 
 <br>
 </details>

@@ -29,6 +29,7 @@ from services.protocol.web_search_tool import (
     search_query_from_messages,
     text_with_url_citations,
 )
+from services.image_model_service import reject_unsupported_web_image_parameters, validate_image_request
 from utils.helper import build_chat_image_markdown_content, extract_chat_image, extract_chat_prompt, is_image_chat_request, parse_image_count
 from utils.image_tokens import (
     chat_usage_from_image_usage,
@@ -161,16 +162,20 @@ def chat_messages_from_body(body: dict[str, Any]) -> list[dict[str, Any]]:
     raise HTTPException(status_code=400, detail={"error": "messages or prompt is required"})
 
 
-def chat_image_args(body: dict[str, Any]) -> tuple[str, str, int, list[tuple[bytes, str, str]]]:
+def chat_image_args(body: dict[str, Any]) -> tuple[str, str, int, str | None, str, list[tuple[bytes, str, str]]]:
     model = str(body.get("model") or "gpt-image-2").strip() or "gpt-image-2"
     prompt = extract_chat_prompt(body)
     if not prompt:
         raise HTTPException(status_code=400, detail={"error": "prompt is required"})
+    size = str(body.get("size") or "").strip() or None
+    quality = str(body.get("quality") or "auto")
+    reject_unsupported_web_image_parameters(body)
+    validate_image_request(model, size=size, quality=quality, parameters=body)
     images = [
         (data, f"image_{idx}.png", mime)
         for idx, (data, mime) in enumerate(extract_chat_image(body), start=1)
     ]
-    return model, prompt, parse_image_count(body.get("n")), images
+    return model, prompt, parse_image_count(body.get("n")), size, quality, images
 
 
 def text_chat_parts(body: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
@@ -230,11 +235,13 @@ def image_result_content(result: dict[str, Any]) -> str:
 
 
 def image_chat_response(body: dict[str, Any]) -> dict[str, Any]:
-    model, prompt, n, images = chat_image_args(body)
+    model, prompt, n, size, quality, images = chat_image_args(body)
     result = collect_image_outputs(stream_image_outputs_with_pool(ConversationRequest(
         prompt=prompt,
         model=model,
         n=n,
+        size=size,
+        quality=quality,
         response_format="b64_json",
         images=encode_images(images) or None,
     )))
@@ -249,11 +256,13 @@ def image_chat_response(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def image_chat_events(body: dict[str, Any]) -> Iterator[dict[str, Any]]:
-    model, prompt, n, images = chat_image_args(body)
+    model, prompt, n, size, quality, images = chat_image_args(body)
     image_outputs = stream_image_outputs_with_pool(ConversationRequest(
         prompt=prompt,
         model=model,
         n=n,
+        size=size,
+        quality=quality,
         response_format="b64_json",
         images=encode_images(images) or None,
     ))

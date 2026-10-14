@@ -101,11 +101,12 @@ const docs: ApiDoc[] = [
     icon: FileArchive,
     input: [
       ["prompt", "string", "图片生成提示词。"],
-      ["model", "string", "可选，默认 gpt-image-2。"],
+      ["model", "string", "可选，默认 gpt-image-2；已配置路由后可使用官方 GPT Image 2.5 变体。"],
       ["n", "number", "可选，生成数量，当前限制 1-4。"],
-      ["size", "string", "可选，图片尺寸。"],
-      ["quality", "string", "可选，默认 auto。"],
+      ["size", "string", "可选；GPT Image 2.5 使用 WIDTHxHEIGHT 并校验尺寸范围。"],
+      ["quality", "string", "可选，默认 auto；GPT Image 2.5 支持 xhigh 与 max。"],
       ["response_format", "string", "可选，默认 b64_json。"],
+      ["unsupported", "-", "background、output_format、output_compression、moderation、partial_images 等网页上游无法可靠转发的字段会返回 400。"],
     ],
     output: [
       ["data", "array", "图片结果列表。"],
@@ -125,10 +126,10 @@ const docs: ApiDoc[] = [
     input: [
       ["image", "file | file[] | URL", "参考图，支持 multipart 上传，也支持 JSON 图片链接。"],
       ["prompt", "string", "编辑提示词。"],
-      ["model", "string", "可选，默认 gpt-image-2。"],
+      ["model", "string", "可选，默认 gpt-image-2；已配置路由后可使用官方 GPT Image 2.5 变体。"],
       ["n", "number", "可选，生成数量，当前限制 1-4。"],
-      ["size", "string", "可选，图片尺寸。"],
-      ["quality", "string", "可选，默认 auto。"],
+      ["size", "string", "可选；GPT Image 2.5 使用 WIDTHxHEIGHT 并校验尺寸范围。"],
+      ["quality", "string", "可选，默认 auto；GPT Image 2.5 支持 xhigh 与 max。"],
     ],
     output: [
       ["data", "array", "编辑后的图片结果列表。"],
@@ -291,7 +292,7 @@ export function ApiDocsCard() {
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs font-medium text-stone-600">常用模型，也可请求 /v1/models 获取</div>
+          <div className="text-xs font-medium text-stone-600">常用模型；图片模型请以 /v1/models 返回结果为准，GPT Image 2.5 仅在对应上游路由已配置后出现。</div>
           <div className="flex flex-wrap gap-2">
             {usableModels.map((model) => (
               <span key={model} className="rounded-md border border-stone-200 bg-white px-2 py-1 font-mono text-xs text-stone-700">{model}</span>

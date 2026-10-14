@@ -56,6 +56,13 @@ export type Model = {
   permission: unknown[];
   root: string;
   parent: string | null;
+  chatgpt2api_capabilities?: ImageModelCapabilities;
+};
+
+export type ImageModelCapabilities = {
+  quality_values: string[];
+  max_resolution: boolean;
+  strict_dimensions: boolean;
 };
 
 type AccountListResponse = {
@@ -156,6 +163,8 @@ export type SettingsConfig = {
   base_url?: string;
   global_system_prompt?: string;
   default_upstream_model_name?: string;
+  gpt_image_25_sunburst_upstream_model_name?: string;
+  gpt_image_25_flare_upstream_model_name?: string;
   default_thinking_effort?: "auto" | "standard" | "extended" | "max";
   sensitive_words?: string[];
   ai_review?: {

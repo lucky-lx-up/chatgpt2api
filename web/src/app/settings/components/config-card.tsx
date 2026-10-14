@@ -39,6 +39,8 @@ export function ConfigCard() {
   const setBaseUrl = useSettingsStore((state) => state.setBaseUrl);
   const setGlobalSystemPrompt = useSettingsStore((state) => state.setGlobalSystemPrompt);
   const setDefaultUpstreamModelName = useSettingsStore((state) => state.setDefaultUpstreamModelName);
+  const setGptImage25SunburstUpstreamModelName = useSettingsStore((state) => state.setGptImage25SunburstUpstreamModelName);
+  const setGptImage25FlareUpstreamModelName = useSettingsStore((state) => state.setGptImage25FlareUpstreamModelName);
   const setDefaultThinkingEffort = useSettingsStore((state) => state.setDefaultThinkingEffort);
   const setSensitiveWordsText = useSettingsStore((state) => state.setSensitiveWordsText);
   const setAIReviewField = useSettingsStore((state) => state.setAIReviewField);
@@ -158,6 +160,26 @@ export function ConfigCard() {
               className="h-10 rounded-xl border-stone-200 bg-white"
             />
             <p className="text-xs text-stone-500">gpt-image-2 发起图片请求时使用的上游模型名称，默认 gpt-5-5。</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-stone-700">GPT Image 2.5 Sunburst 上游模型</label>
+            <Input
+              value={String(config?.gpt_image_25_sunburst_upstream_model_name || "")}
+              onChange={(event) => setGptImage25SunburstUpstreamModelName(event.target.value)}
+              placeholder="留空则不公开 gpt-image-2.5-sunburst"
+              className="h-10 rounded-xl border-stone-200 bg-white"
+            />
+            <p className="text-xs text-stone-500">填写已验证的 ChatGPT 上游模型名称后，才会在图片模型列表中公开该变体。</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-stone-700">GPT Image 2.5 Flare 上游模型</label>
+            <Input
+              value={String(config?.gpt_image_25_flare_upstream_model_name || "")}
+              onChange={(event) => setGptImage25FlareUpstreamModelName(event.target.value)}
+              placeholder="留空则不公开 gpt-image-2.5-flare"
+              className="h-10 rounded-xl border-stone-200 bg-white"
+            />
+            <p className="text-xs text-stone-500">填写已验证的 ChatGPT 上游模型名称后，才会在图片模型列表中公开该变体。</p>
           </div>
           <div className="space-y-2">
             <label className="text-sm text-stone-700">默认思考强度</label>

@@ -28,7 +28,8 @@ from services.protocol.web_search_tool import (
     search_query_from_messages,
     text_with_url_citations,
 )
-from utils.helper import extract_image_from_message_content, extract_response_prompt, has_response_image_generation_tool
+from services.image_model_service import reject_unsupported_web_image_parameters, validate_image_request
+from utils.helper import extract_image_from_message_content, extract_response_prompt, has_response_image_generation_tool, is_supported_image_model
 from utils.image_tokens import (
     count_image_content_tokens,
     count_image_output_items_tokens,
@@ -82,25 +83,51 @@ def response_image_tool(body: dict[str, Any]) -> dict[str, object]:
     return {}
 
 
+def response_image_model(body: dict[str, Any], tool: dict[str, object]) -> str:
+    tool_model = str(tool.get("model") or "").strip()
+    top_level_model = str(body.get("model") or "").strip()
+    if tool_model:
+        return tool_model
+    if is_supported_image_model(top_level_model):
+        return top_level_model
+    if top_level_model.lower().startswith(("gpt-image", "codex-gpt-image")):
+        return top_level_model
+    return "gpt-image-2"
+
+
+def _response_contains_file_id_reference(input_value: object) -> bool:
+    if isinstance(input_value, dict) and input_value.get("file_id"):
+        return True
+    for part in _input_image_parts(input_value):
+        if part.get("file_id"):
+            return True
+        image_url = part.get("image_url")
+        if isinstance(image_url, dict) and image_url.get("file_id"):
+            return True
+    return False
+
+
+def _response_contains_input_image_mask(input_value: object) -> bool:
+    if isinstance(input_value, dict) and input_value.get("input_image_mask") is not None:
+        return True
+    for part in _input_image_parts(input_value):
+        if part.get("input_image_mask") is not None:
+            return True
+        image_url = part.get("image_url")
+        if isinstance(image_url, dict) and image_url.get("input_image_mask") is not None:
+            return True
+    return False
+
+
+def extract_response_images(input_value: object) -> list[tuple[bytes, str]]:
+    if isinstance(input_value, dict) and str(input_value.get("type") or "").strip() == "input_image":
+        return extract_image_from_message_content([input_value])
+    return extract_image_from_message_content(_input_image_parts(input_value))
+
+
 def extract_response_image(input_value: object) -> tuple[bytes, str] | None:
-    if isinstance(input_value, dict):
-        if str(input_value.get("type") or "").strip() == "input_image":
-            images = extract_image_from_message_content([input_value])
-            return images[0] if images else None
-        images = extract_image_from_message_content(input_value.get("content"))
-        return images[0] if images else None
-    if not isinstance(input_value, list):
-        return None
-    for item in reversed(input_value):
-        if isinstance(item, dict):
-            if str(item.get("type") or "").strip() == "input_image":
-                images = extract_image_from_message_content([item])
-                if images:
-                    return images[0]
-            images = extract_image_from_message_content(item.get("content"))
-            if images:
-                return images[0]
-    return None
+    images = extract_response_images(input_value)
+    return images[0] if images else None
 
 
 def _input_image_parts(input_value: object) -> list[dict[str, Any]]:
@@ -423,27 +450,59 @@ def response_events(body: dict[str, Any]) -> Iterator[dict[str, Any]]:
         )
         return
 
+    if _response_contains_file_id_reference(body.get("input")):
+        raise HTTPException(status_code=400, detail={"error": "file_id image references are not supported; use image_url instead"})
+    if _response_contains_input_image_mask(body.get("input")):
+        raise HTTPException(status_code=400, detail={"error": "input_image_mask is not supported by the ChatGPT web image route"})
     prompt = extract_response_prompt(body.get("input"))
     if not prompt:
         raise HTTPException(status_code=400, detail={"error": "input text is required"})
-    model = str(body.get("model") or "gpt-image-2").strip() or "gpt-image-2"
-    image_info = extract_response_image(body.get("input"))
-    if image_info:
-        image_data, mime_type = image_info
-        images = encode_images([(image_data, "image.png", mime_type)])
+    response_model = str(body.get("model") or "gpt-image-2").strip() or "gpt-image-2"
+    input_images = extract_response_images(body.get("input"))
+    if input_images:
+        images = encode_images([
+            (image_data, f"image_{index}.png", mime_type)
+            for index, (image_data, mime_type) in enumerate(input_images, start=1)
+        ])
     else:
         images = None
-    input_image_tokens = count_image_content_tokens(_input_image_parts(body.get("input")), model)
     tool = response_image_tool(body)
+    image_model = response_image_model(body, tool)
+    action = str(tool.get("action") or "auto").strip().lower() or "auto"
+    if action not in {"auto", "generate", "edit"}:
+        raise HTTPException(status_code=400, detail={"error": "image_generation action must be auto, generate, or edit"})
+    if action == "edit" and not images:
+        raise HTTPException(status_code=400, detail={"error": "image_generation action edit requires an input image"})
+    if action == "generate" and images:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "image_generation action generate does not support input images on the ChatGPT web image route"},
+        )
+    reject_unsupported_web_image_parameters(body)
+    reject_unsupported_web_image_parameters(tool)
+    validate_image_request(
+        image_model,
+        size=tool.get("size"),
+        quality=str(tool.get("quality") or "auto"),
+        parameters=tool,
+    )
+    input_image_tokens = count_image_content_tokens(_input_image_parts(body.get("input")), image_model)
     image_outputs = stream_image_outputs_with_pool(ConversationRequest(
         prompt=prompt,
-        model=model,
+        model=image_model,
         size=tool.get("size"),
         quality=str(tool.get("quality") or "auto"),
         response_format="b64_json",
         images=images,
     ))
-    yield from stream_image_response(image_outputs, prompt, model, input_image_tokens, tool.get("size"), str(tool.get("quality") or "auto"))
+    yield from stream_image_response(
+        image_outputs,
+        prompt,
+        response_model,
+        input_image_tokens,
+        tool.get("size"),
+        str(tool.get("quality") or "auto"),
+    )
 
 
 def handle(body: dict[str, Any]) -> dict[str, Any] | Iterator[dict[str, Any]]:

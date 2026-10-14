@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from api.image_inputs import parse_image_edit_request, read_image_sources
 from api.support import require_identity, resolve_image_base_url
 from services.content_filter import check_request, request_shape, request_text
+from services.image_model_service import reject_unsupported_web_image_parameters, validate_image_request
 from services.editable_file_task_service import editable_file_task_service
 from services.log_service import LoggedCall
 from services.protocol import (
@@ -22,6 +23,7 @@ from services.protocol import (
 
 
 class ImageGenerationRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     prompt: str = Field(..., min_length=1)
     model: str = "gpt-image-2"
     n: int = Field(default=1, ge=1, le=4)
@@ -96,6 +98,8 @@ def create_router() -> APIRouter:
     ):
         identity = require_identity(authorization)
         payload = body.model_dump(mode="python")
+        reject_unsupported_web_image_parameters(payload)
+        validate_image_request(body.model, size=body.size, quality=body.quality, parameters=payload)
         payload["base_url"] = resolve_image_base_url(request)
         call = LoggedCall(identity, "/v1/images/generations", body.model, "文生图", request_text=body.prompt)
         await filter_or_log(call, body.prompt)

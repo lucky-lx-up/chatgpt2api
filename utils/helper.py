@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 from urllib.parse import urlparse
 
 from curl_cffi import requests
@@ -14,15 +14,45 @@ from fastapi import HTTPException
 from services.proxy_service import proxy_settings
 from utils.log import logger
 
-BASE_IMAGE_MODELS = {"gpt-image-2", "codex-gpt-image-2"}
+LEGACY_IMAGE_MODEL = "gpt-image-2"
+GPT_IMAGE_25_SUNBURST_MODEL = "gpt-image-2.5-sunburst"
+GPT_IMAGE_25_FLARE_MODEL = "gpt-image-2.5-flare"
 IMAGE_MODEL_PLAN_TYPES = ("plus", "team", "pro")
 CODEX_IMAGE_MODEL = "codex-gpt-image-2"
+BASE_IMAGE_MODELS = {
+    LEGACY_IMAGE_MODEL,
+    GPT_IMAGE_25_SUNBURST_MODEL,
+    GPT_IMAGE_25_FLARE_MODEL,
+    CODEX_IMAGE_MODEL,
+}
 PREFIXED_CODEX_IMAGE_MODELS = {
     f"{plan_type}-{CODEX_IMAGE_MODEL}"
     for plan_type in IMAGE_MODEL_PLAN_TYPES
 }
 IMAGE_MODELS = BASE_IMAGE_MODELS | PREFIXED_CODEX_IMAGE_MODELS
 PUBLIC_IMAGE_MODELS = BASE_IMAGE_MODELS | PREFIXED_CODEX_IMAGE_MODELS
+IMAGE_MODEL_CAPABILITIES: Mapping[str, dict[str, object]] = {
+    LEGACY_IMAGE_MODEL: {
+        "quality_values": ("auto", "low", "medium", "high"),
+        "max_resolution": False,
+        "strict_dimensions": False,
+    },
+    GPT_IMAGE_25_SUNBURST_MODEL: {
+        "quality_values": ("auto", "low", "medium", "high", "xhigh", "max"),
+        "max_resolution": True,
+        "strict_dimensions": True,
+    },
+    GPT_IMAGE_25_FLARE_MODEL: {
+        "quality_values": ("auto", "low", "medium", "high", "xhigh", "max"),
+        "max_resolution": True,
+        "strict_dimensions": True,
+    },
+    CODEX_IMAGE_MODEL: {
+        "quality_values": ("auto", "low", "medium", "high"),
+        "max_resolution": True,
+        "strict_dimensions": False,
+    },
+}
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
 SUPPORTED_JSON_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
@@ -119,6 +149,11 @@ def split_image_model(model: object) -> tuple[str | None, str | None]:
             if base_model == CODEX_IMAGE_MODEL:
                 return plan_type, base_model
     return None, None
+
+
+def image_model_capabilities(model: object) -> dict[str, object]:
+    _, base_model = split_image_model(model)
+    return dict(IMAGE_MODEL_CAPABILITIES.get(base_model or "", {}))
 
 
 def is_supported_image_model(model: object) -> bool:

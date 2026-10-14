@@ -23,7 +23,15 @@ from PIL import Image
 from services.account_service import account_service
 from services.config import config
 from services.proxy_service import proxy_settings
-from utils.helper import UpstreamHTTPError, ensure_ok, iter_sse_payloads, new_uuid, split_image_model
+from utils.helper import (
+    GPT_IMAGE_25_FLARE_MODEL,
+    GPT_IMAGE_25_SUNBURST_MODEL,
+    UpstreamHTTPError,
+    ensure_ok,
+    iter_sse_payloads,
+    new_uuid,
+    split_image_model,
+)
 from utils.log import logger
 from utils.pow import build_legacy_requirements_token, build_proof_token, parse_pow_resources
 from utils.turnstile import solve_turnstile_token
@@ -568,10 +576,16 @@ class OpenAIBackendAPI:
             return "auto", ""
         if base_model == "gpt-image-2":
             upstream_model = config.default_upstream_model_name
+        elif base_model == GPT_IMAGE_25_SUNBURST_MODEL:
+            upstream_model = config.gpt_image_25_sunburst_upstream_model_name
+        elif base_model == GPT_IMAGE_25_FLARE_MODEL:
+            upstream_model = config.gpt_image_25_flare_upstream_model_name
         elif base_model == CODEX_IMAGE_MODEL:
             upstream_model = base_model
         else:
             return "auto", ""
+        if not upstream_model:
+            raise ValueError(f"image model '{base_model}' is not configured with an upstream route")
         model_name, separator, suffix = upstream_model.rpartition("-")
         if separator and suffix.lower() in {"standard", "extended", "max"}:
             return model_name, suffix.lower()

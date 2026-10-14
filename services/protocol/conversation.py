@@ -13,10 +13,10 @@ import tiktoken
 
 from services.account_service import account_service
 from services.config import config
+from services.image_model_service import enabled_image_model_ids, validate_image_request
 from services.image_storage_service import image_storage_service
 from services.openai_backend_api import ImageContentPolicyError, ImagePollTimeoutError, OpenAIBackendAPI
 from utils.helper import (
-    IMAGE_MODELS,
     extract_image_from_message_content,
     is_codex_image_model,
     is_supported_image_model,
@@ -1320,7 +1320,7 @@ def _generate_single_image(
             codex_model = is_codex_image_model(request.model)
             token = account_service.get_available_access_token(
                 plan_type=plan_type,
-                source_type="codex" if codex_model else None,
+                source_type="codex" if codex_model else "web",
                 plan_types=("plus", "team", "pro") if codex_model and not plan_type else None,
             )
         except RuntimeError as exc:
@@ -1528,8 +1528,17 @@ def _generate_single_image(
 
 def stream_image_outputs_with_pool(request: ConversationRequest) -> Iterator[ImageOutput]:
     """并行生成多张图片，每张图片使用独立线程和账号，互不阻塞。"""
+    try:
+        validate_image_request(request.model, size=request.size, quality=request.quality)
+    except Exception as exc:
+        if isinstance(exc, ImageGenerationError):
+            raise
+        detail = getattr(exc, "detail", None)
+        message = detail.get("error") if isinstance(detail, dict) else str(detail or exc)
+        raise ImageGenerationError(str(message), status_code=400, error_type="invalid_request_error", code="invalid_image_request") from exc
     if not is_supported_image_model(request.model):
-        raise ImageGenerationError("unsupported image model,supported models: " + ", ".join(sorted(IMAGE_MODELS)))
+        supported_models = sorted(enabled_image_model_ids())
+        raise ImageGenerationError("unsupported image model,supported models: " + ", ".join(supported_models), status_code=400)
 
     if request.n <= 1:
         # 单张图片，直接执行（无需线程池开销）

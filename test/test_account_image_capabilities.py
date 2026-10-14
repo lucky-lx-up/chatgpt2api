@@ -76,6 +76,20 @@ class AccountCapabilityTests(unittest.TestCase):
         self.assertEqual(split_image_model("plus-gpt-image-2"), (None, None))
         self.assertEqual(split_image_model("unknown-image-model"), (None, None))
 
+    def test_web_source_filter_excludes_codex_accounts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = AccountService(JSONStorageBackend(Path(tmp_dir) / "accounts.json"))
+            service.add_account_items([
+                {"access_token": "token-web", "source_type": "web", "status": "正常", "quota": 1},
+                {"access_token": "token-codex", "source_type": "codex", "status": "正常", "quota": 1},
+            ])
+            service.fetch_remote_info = lambda access_token, event="fetch_remote_info": service.get_account(access_token)
+
+            token = service.get_available_access_token(source_type="web")
+            service.release_image_slot(token)
+
+        self.assertEqual(token, "token-web")
+
     def test_get_available_access_token_filters_by_plan_type(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = AccountService(JSONStorageBackend(Path(tmp_dir) / "accounts.json"))
